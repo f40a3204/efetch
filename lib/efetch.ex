@@ -154,6 +154,7 @@ defmodule Efetch.Main do
   """
   def start(_types, _args) do
     Efetch.Fetch.start()
+    System.halt(0)
     {:ok, self()}
   end
 
