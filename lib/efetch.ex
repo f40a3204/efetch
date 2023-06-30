@@ -116,9 +116,8 @@ defmodule Efetch.Fetch do
 
   @spec gethostname() :: binary()
   def gethostname() do
-    :os.cmd('hostname')
-      |> List.to_string()
-      |> String.trim
+    {:ok, contents} = File.read("/proc/sys/kernel/hostname")
+    contents |> String.trim()
   end
 
   @spec lenline(binary()) :: integer()
