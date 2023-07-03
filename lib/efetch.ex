@@ -100,14 +100,17 @@ defmodule Efetch.Fetch do
 
   @spec getcpubrand() :: binary()
   def getcpubrand() do
-    {:ok, contents} = File.read("/proc/cpuinfo")
-    brand = contents
-            |> String.split("\n")
-            |> Enum.find(fn line -> String.starts_with?(line, "model name") end)
-            |> String.split(":")
-            |> List.last()
-            |> String.trim()
-    brand
+    {:ok, contents} = 
+    case File.read("/proc/cpuinfo") do
+      {:ok, contents} ->
+        contents
+          |> String.split("\n")
+          |> Enum.find(fn line -> String.starts_with?(line, "model name") end)
+          |> String.split(":")
+          |> List.last()
+          |> String.trim()
+      {:error, _} ->
+          "unable to get cpu brand"
   end
 
   @spec getuser() :: binary()
