@@ -127,10 +127,8 @@ defmodule Efetch.Fetch do
   end
 
   @spec lenline(binary()) :: integer()
+  def lenline(nil), do: 0
   def lenline(target \\ getuser()<>"@"<>gethostname() ) do
-    if target == nil do
-      0
-    end
     String.length(target)
   end
 
