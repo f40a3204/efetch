@@ -27,7 +27,8 @@ defmodule Efetch.Fetch do
 
   @spec getkernel() :: binary() 
   def getkernel do 
-    out = List.to_string :os.cmd('uname -r')
+    out = :os.cmd('uname -r')
+          |> List.to_string()
     String.replace(out, "\n", "")
   end
 
@@ -116,8 +117,13 @@ defmodule Efetch.Fetch do
 
   @spec gethostname() :: binary()
   def gethostname() do
-    {:ok, contents} = File.read("/proc/sys/kernel/hostname")
-    contents |> String.trim()
+    case File.read("/proc/sys/kernel/hostname") do
+      {:ok, file_contents} ->
+        file_contents |> String.trim()
+      {:error, _} ->
+        :os.cmd('hostname')
+        |> List.to_string()
+    end
   end
 
   @spec lenline(binary()) :: integer()
