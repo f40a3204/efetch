@@ -100,7 +100,6 @@ defmodule Efetch.Fetch do
 
   @spec getcpubrand() :: binary()
   def getcpubrand() do
-    {:ok, contents} = 
     case File.read("/proc/cpuinfo") do
       {:ok, contents} ->
         contents
@@ -111,6 +110,7 @@ defmodule Efetch.Fetch do
           |> String.trim()
       {:error, _} ->
           "unable to get cpu brand"
+    end
   end
 
   @spec getuser() :: binary()
