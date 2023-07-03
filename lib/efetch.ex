@@ -133,6 +133,14 @@ defmodule Efetch.Fetch do
     String.length(target)
   end
 
+  def trylenline() do
+    try do
+      lenline()
+    rescue
+      _ -> 0
+    end
+  end
+
   @spec printline(integer(), binary()) :: binary()
   def printline(target, acc \\ "")
   def printline(0, acc), do: acc
@@ -143,7 +151,7 @@ defmodule Efetch.Fetch do
   @spec start() :: :ok
   def start do
     IO.puts "#{IO.ANSI.green}#{getuser()}#{IO.ANSI.reset}@#{IO.ANSI.green}#{gethostname()}#{IO.ANSI.reset}"
-    IO.puts "#{printline(lenline())}"
+    IO.puts "#{printline(trylenline())}"
     IO.puts "#{IO.ANSI.green}operating system:#{IO.ANSI.reset} #{getos()}"
     IO.puts "#{IO.ANSI.green}host:#{IO.ANSI.reset} #{gethost()}"
     IO.puts "#{IO.ANSI.green}kernel:#{IO.ANSI.reset} #{getkernel()}"
