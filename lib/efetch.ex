@@ -132,8 +132,9 @@ defmodule Efetch.Fetch do
   end
 
   @spec printline(integer(), binary()) :: binary()
+  def printline(target, acc \\ "")
   def printline(0, acc), do: acc
-  def printline(target, acc \\ "") do
+  def printline(target, acc) do
     printline(target - 1, acc <> "-")
   end
 
