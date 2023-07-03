@@ -6,6 +6,7 @@ Neofetch clone with elixir.
 
 Straight forward run
 ```
+mix deps.get # run on first time 
 mix release
 ```
 and then 
