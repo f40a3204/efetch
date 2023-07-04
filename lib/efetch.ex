@@ -104,7 +104,7 @@ defmodule Efetch.Fetch do
     {:ok, out}
   end 
 
-  @spec getcpubrand() :: {:ok, binary()}
+  @spec getcpubrand() :: {:ok, binary()} | {:error, binary()}
   def getcpubrand() do
     case File.read("/proc/cpuinfo") do
       {:ok, contents} ->
@@ -116,6 +116,16 @@ defmodule Efetch.Fetch do
           |> String.trim()
         {:ok, out}
       {:error, _} ->
+        {:error, "unable to read /proc/cpuinfo"}
+    end
+  end
+  
+  @spec wrapcpubrand()  :: {:ok, binary()} | {:error, binary()}
+  def wrapcpubrand() do
+    try do
+      getcpubrand() 
+    rescue 
+      _ -> 
         {:error, "unable to read /proc/cpuinfo"}
     end
   end
@@ -194,10 +204,10 @@ defmodule Efetch.Main do
     sysinfo = Task.async(Fetch, :getsysinfo, [])
     host = Task.async(Fetch, :gethost, [])
     kernel = Task.async(Fetch, :getkernel, [])
-    uptime = Task.async(Fetch, :getuptime, [])
+    uptime = Task.async(Fetch, :formatuptime, [])
     term = Task.async(Fetch, :getterm, [])
     shell = Task.async(Fetch, :getshell, [])
-    cpu = Task.async(Fetch, :getcpubrand, [])
+    cpu = Task.async(Fetch, :wrapcpubrand, [])
     memory = Task.async(Fetch, :formatmem, [])
 
     {_, userbar} = Task.await(userbar)
