@@ -229,7 +229,7 @@ defmodule Efetch.Main do
 
   def start(_types, _args) do
     queue()
-    # System.halt(0)
+    System.halt(0)
     {:ok, self()}
   end
 
