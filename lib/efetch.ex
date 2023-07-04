@@ -152,7 +152,9 @@ defmodule Efetch.Fetch do
 
   @spec getuser() :: {:ok, binary()}
   def getuser() do
-    out = System.get_env("USER")
+    out = :os.cmd('id -un')
+          |> List.to_string()
+          |> String.trim()
     {:ok, out}
   end
 
