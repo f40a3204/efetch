@@ -7,6 +7,18 @@ defmodule Efetch.Fetch do
   Everything does exactly what you think they do
   """
 
+  def grabos() do 
+    case File.read("/etc/os-release") do 
+      {:ok, contents} -> 
+        case Regex.run(~r/PRETTY_NAME="([^"]+)"/, contents) do
+          [_, pretty_name] -> {:ok, pretty_name}
+          _ -> "Pretty name not found"
+        end
+      {:error, _} ->
+        getos()
+    end
+  end
+
   @spec getos() :: {:ok, binary()} 
   def getos() do 
      raw = List.to_string :os.cmd('lsb_release -sd')
@@ -208,7 +220,7 @@ defmodule Efetch.Main do
     # gosh this is ugly
     userbar = Task.async(Fetch, :formathostuser, [])
     line = Task.async(Fetch, :wrapprintline, [])
-    os = Task.async(Fetch, :getos, [])
+    os = Task.async(Fetch, :grabos, [])
     sysinfo = Task.async(Fetch, :getsysinfo, [])
     host = Task.async(Fetch, :gethost, [])
     kernel = Task.async(Fetch, :getkernel, [])
