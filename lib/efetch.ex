@@ -58,6 +58,14 @@ defmodule Efetch.Fetch do
     {:ok, "#{hours} #{hour_str} #{minutes} #{min}"}
   end
 
+  def wrapuptime() do 
+    try do 
+      formatuptime()
+    rescue
+      _ -> getuptime()
+    end
+  end
+
   @spec getmemory() :: {:ok, %{total_mem: integer(), used_mem: integer()}} | {:error, binary()}
   defp getmemory() do 
     :application.start(:memsup)
@@ -204,7 +212,7 @@ defmodule Efetch.Main do
     sysinfo = Task.async(Fetch, :getsysinfo, [])
     host = Task.async(Fetch, :gethost, [])
     kernel = Task.async(Fetch, :getkernel, [])
-    uptime = Task.async(Fetch, :formatuptime, [])
+    uptime = Task.async(Fetch, :wrapuptime, [])
     term = Task.async(Fetch, :getterm, [])
     shell = Task.async(Fetch, :getshell, [])
     cpu = Task.async(Fetch, :wrapcpubrand, [])
