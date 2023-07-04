@@ -7,17 +7,16 @@ defmodule Efetch.Fetch do
   Everything does exactly what you think they do
   """
 
-  @spec getos() :: binary() 
-  def getos do 
+  @spec getos() :: {:ok, binary()} 
+  def getos() do 
      raw = List.to_string :os.cmd('lsb_release -sd')
      os = String.replace(raw, "\"", "")
      out = String.replace(os, "\n", "")
      {:ok, out}
-
   end
 
-  @spec gethost() :: binary() 
-  def gethost do 
+  @spec gethost() :: {:error, binary()} | {:ok, binary()} 
+  def gethost() do 
     case File.read("/sys/devices/virtual/dmi/id/product_name") do
       {:ok, file_contents} ->
         {:ok, String.replace(file_contents, "\n", "")}
@@ -27,16 +26,16 @@ defmodule Efetch.Fetch do
     end
   end
 
-  @spec getkernel() :: binary() 
-  def getkernel do 
+  @spec getkernel() :: {:ok, binary()} 
+  def getkernel() do 
     out = :os.cmd('uname -r')
           |> List.to_string()
     {:ok, String.replace(out, "\n", "")}
 
   end
 
-  @spec getuptime() :: binary()
-  defp getuptime do 
+  @spec getuptime() :: {:ok, binary()}
+  def getuptime() do 
     out = List.to_string :os.cmd('uptime')
     # regex = ~r/up\s+(\d+:\d+)/
     regex = ~r/up\s+(.*),\s+\d+\s+user/
@@ -47,9 +46,9 @@ defmodule Efetch.Fetch do
     {:ok, uptime}
   end
 
-  @spec formatuptime() :: binary()
-  def formatuptime do
-    time_str = getuptime()
+  @spec formatuptime() :: {:ok, binary()}
+  def formatuptime() do
+    {:ok, time_str} = getuptime()
     [hours_str, minutes_str] = String.split(time_str, ":")
     hours = String.to_integer(hours_str)
     minutes = String.to_integer(minutes_str)
@@ -59,8 +58,8 @@ defmodule Efetch.Fetch do
     {:ok, "#{hours} #{hour_str} #{minutes} #{min}"}
   end
 
-  @spec getmemory() :: %{total_mem: integer, used_mem: integer} | :error
-  defp getmemory do 
+  @spec getmemory() :: {:ok, %{total_mem: integer(), used_mem: integer()}} | {:error, binary()}
+  defp getmemory() do 
     :application.start(:memsup)
     list = :memsup.get_system_memory_data()
     cond do
@@ -75,63 +74,59 @@ defmodule Efetch.Fetch do
           }
         }
       !is_integer(Keyword.get(list, :total_memory)) -> 
-        {:error, :memnotinteger}
+        {:error, "memory is not integer"}
         
     end
   end
 
-  @spec formatmem() :: binary()
+  @spec formatmem() :: {:ok, binary()}
   def formatmem() do
-    input = getmemory()
-    case input do
-      :error -> {:error, :cannotgetmem}
-      _ -> 
-        out = "#{Map.get(input, :used_mem)}MiB / #{Map.get(input, :total_mem)}MiB"
-        {:ok, out}
-    end
+    {:ok, input} = getmemory()
+    out = "#{Map.get(input, :used_mem)}MiB / #{Map.get(input, :total_mem)}MiB"
+    {:ok, out}
   end
  
-  @spec getshell() :: binary()
+  @spec getshell() :: {:ok, nil | binary()}
   def getshell() do
     out = System.get_env("SHELL")
     {:ok, out}
   end
 
-  @spec getterm() :: binary()
+  @spec getterm() :: {:ok, nil | binary()}
   def getterm() do 
     out = System.get_env("TERM")
     {:ok, out}
   end
 
-  @spec getsysinfo() :: charlist()
+  @spec getsysinfo() :: {:ok, charlist()}
   def getsysinfo do
     out = :erlang.system_info(:system_architecture)                   
     {:ok, out}
   end 
 
-  @spec getcpubrand() :: binary()
+  @spec getcpubrand() :: {:ok, binary()}
   def getcpubrand() do
     case File.read("/proc/cpuinfo") do
       {:ok, contents} ->
-        contents
+      out = contents
           |> String.split("\n")
           |> Enum.find(fn line -> String.starts_with?(line, "model name") end)
           |> String.split(":")
           |> List.last()
           |> String.trim()
-        {:ok, contents}
+        {:ok, out}
       {:error, _} ->
         {:error, "unable to read /proc/cpuinfo"}
     end
   end
 
-  @spec getuser() :: binary()
+  @spec getuser() :: {:ok, binary()}
   def getuser() do
     out = System.get_env("USER")
     {:ok, out}
   end
 
-  @spec gethostname() :: binary()
+  @spec gethostname() :: {:ok, binary()}
   def gethostname() do
     case File.read("/proc/sys/kernel/hostname") do
       {:ok, file_contents} ->
@@ -144,26 +139,41 @@ defmodule Efetch.Fetch do
     end
   end
 
+  @spec formathostuser() :: {:ok, binary()}
+  def formathostuser() do
+    {_, user} = getuser()
+    {_, host} = gethostname()
+    out = "#{user}" <> "@" <> "#{host}"
+    {:ok, out}
+  end
+
   @spec lenline(binary() | nil) :: integer()
-  def lenline( target \\ getuser()<>"@"<>gethostname() ) 
   def lenline(nil), do: 0
   def lenline( target ) do
     String.length(target)
   end
 
+  @spec trylenline() :: integer()
   def trylenline() do
+    {_, user} = getuser()
+    {_, hostname} = gethostname()
+    target = "#{user}@#{hostname}"
     try do
-      lenline()
+      lenline(target)
     rescue
       _ -> 0
     end
   end
 
-  @spec printline(integer(), binary()) :: binary()
+  @spec printline(integer(), binary()) :: {:ok, binary()}
   def printline(target, acc \\ "")
-  def printline(0, acc), do: acc
+  def printline(0, acc), do: {:ok, acc}
   def printline(target, acc) do
     printline(target - 1, acc <> "-")
+  end
+
+  def wrapprintline() do
+    printline(trylenline())
   end
 
 end
@@ -172,8 +182,54 @@ defmodule Efetch.Main do
   @moduledoc """
   Entry point.
   """
+  alias Efetch.Fetch
+
+
+  
+  def queue() do
+    # gosh this is ugly
+    userbar = Task.async(Fetch, :formathostuser, [])
+    line = Task.async(Fetch, :wrapprintline, [])
+    os = Task.async(Fetch, :getos, [])
+    sysinfo = Task.async(Fetch, :getsysinfo, [])
+    host = Task.async(Fetch, :gethost, [])
+    kernel = Task.async(Fetch, :getkernel, [])
+    uptime = Task.async(Fetch, :getuptime, [])
+    term = Task.async(Fetch, :getterm, [])
+    shell = Task.async(Fetch, :getshell, [])
+    cpu = Task.async(Fetch, :getcpubrand, [])
+    memory = Task.async(Fetch, :formatmem, [])
+
+    {_, userbar} = Task.await(userbar)
+    {_, line} = Task.await(line)
+    {_, os} = Task.await(os)
+    {_, sysinfo} = Task.await(sysinfo)
+    {_, host} = Task.await(host)
+    {_, kernel} = Task.await(kernel)
+    {_, uptime} = Task.await(uptime)
+    {_, term} = Task.await(term)
+    {_, shell} = Task.await(shell)
+    {_, cpu} = Task.await(cpu)
+    {_, memory} = Task.await(memory)
+
+    IO.puts(userbar)
+    IO.puts(line)
+    IO.puts("operating system: #{os}")
+    IO.puts("os info: #{sysinfo}")
+    IO.puts("host: #{host}")
+    IO.puts("kernel: #{kernel}")
+    IO.puts("uptime: #{uptime}")
+    IO.puts("terminal: #{term}")
+    IO.puts("shell: #{shell}")
+    IO.puts("cpu: #{cpu}")
+    IO.puts("memory: #{memory}")
+
+    {:ok, "success"}
+  end
+
   def start(_types, _args) do
-    System.halt(0)
+    queue()
+    # System.halt(0)
     {:ok, self()}
   end
 
