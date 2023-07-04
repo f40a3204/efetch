@@ -11,17 +11,19 @@ defmodule Efetch.Fetch do
   def getos do 
      raw = List.to_string :os.cmd('lsb_release -sd')
      os = String.replace(raw, "\"", "")
-     String.replace(os, "\n", "")
+     out = String.replace(os, "\n", "")
+     {:ok, out}
+
   end
 
   @spec gethost() :: binary() 
   def gethost do 
     case File.read("/sys/devices/virtual/dmi/id/product_name") do
       {:ok, file_contents} ->
-        String.replace(file_contents, "\n", "")
+        {:ok, String.replace(file_contents, "\n", "")}
 
       {:error, _} ->
-        "not found"
+        {:error, "product_name file not found"}
     end
   end
 
@@ -29,7 +31,8 @@ defmodule Efetch.Fetch do
   def getkernel do 
     out = :os.cmd('uname -r')
           |> List.to_string()
-    String.replace(out, "\n", "")
+    {:ok, String.replace(out, "\n", "")}
+
   end
 
   @spec getuptime() :: binary()
@@ -41,7 +44,7 @@ defmodule Efetch.Fetch do
       [_, uptime] -> uptime
       nil -> "not found"
     end
-    uptime
+    {:ok, uptime}
   end
 
   @spec formatuptime() :: binary()
@@ -53,7 +56,7 @@ defmodule Efetch.Fetch do
 
     hour_str = if hours == 1, do: "hour", else: "hours"
     min = if minutes == 1, do: "minute", else: "minutes"
-    "#{hours} #{hour_str} #{minutes} #{min}"
+    {:ok, "#{hours} #{hour_str} #{minutes} #{min}"}
   end
 
   @spec getmemory() :: %{total_mem: integer, used_mem: integer} | :error
@@ -64,12 +67,15 @@ defmodule Efetch.Fetch do
       is_integer(Keyword.get(list, :total_memory)) -> 
         total_mem = Keyword.get(list, :total_memory) / 1048576
         remain_mem = Keyword.get(list, :available_memory) / 1048576
-        %{
-          :total_mem => round(total_mem),
-          :used_mem => round(total_mem - remain_mem)
+        {
+          :ok,
+          %{
+            :total_mem => round(total_mem),
+            :used_mem => round(total_mem - remain_mem)
+          }
         }
       !is_integer(Keyword.get(list, :total_memory)) -> 
-        :error
+        {:error, :memnotinteger}
         
     end
   end
@@ -78,24 +84,29 @@ defmodule Efetch.Fetch do
   def formatmem() do
     input = getmemory()
     case input do
-      :error -> "error"
-      _ -> "#{Map.get(input, :used_mem)}MiB / #{Map.get(input, :total_mem)}MiB"
+      :error -> {:error, :cannotgetmem}
+      _ -> 
+        out = "#{Map.get(input, :used_mem)}MiB / #{Map.get(input, :total_mem)}MiB"
+        {:ok, out}
     end
   end
  
   @spec getshell() :: binary()
   def getshell() do
-    System.get_env("SHELL")
+    out = System.get_env("SHELL")
+    {:ok, out}
   end
 
   @spec getterm() :: binary()
   def getterm() do 
-    System.get_env("TERM")
+    out = System.get_env("TERM")
+    {:ok, out}
   end
 
   @spec getsysinfo() :: charlist()
   def getsysinfo do
-    :erlang.system_info(:system_architecture)                   
+    out = :erlang.system_info(:system_architecture)                   
+    {:ok, out}
   end 
 
   @spec getcpubrand() :: binary()
@@ -108,24 +119,28 @@ defmodule Efetch.Fetch do
           |> String.split(":")
           |> List.last()
           |> String.trim()
+        {:ok, contents}
       {:error, _} ->
-          "unable to get cpu brand"
+        {:error, "unable to read /proc/cpuinfo"}
     end
   end
 
   @spec getuser() :: binary()
   def getuser() do
-    System.get_env("USER")
+    out = System.get_env("USER")
+    {:ok, out}
   end
 
   @spec gethostname() :: binary()
   def gethostname() do
     case File.read("/proc/sys/kernel/hostname") do
       {:ok, file_contents} ->
-        file_contents |> String.trim()
+        out = file_contents |> String.trim()
+        {:ok, out}
       {:error, _} ->
-        :os.cmd('hostname')
+        out = :os.cmd('hostname')
         |> List.to_string()
+        {:ok, out}
     end
   end
 
@@ -151,20 +166,6 @@ defmodule Efetch.Fetch do
     printline(target - 1, acc <> "-")
   end
 
-  @spec start() :: :ok
-  def start do
-    IO.puts "#{IO.ANSI.green}#{getuser()}#{IO.ANSI.reset}@#{IO.ANSI.green}#{gethostname()}#{IO.ANSI.reset}"
-    IO.puts "#{printline(trylenline())}"
-    IO.puts "#{IO.ANSI.green}operating system:#{IO.ANSI.reset} #{getos()}"
-    IO.puts "#{IO.ANSI.green}host:#{IO.ANSI.reset} #{gethost()}"
-    IO.puts "#{IO.ANSI.green}kernel:#{IO.ANSI.reset} #{getkernel()}"
-    IO.puts "#{IO.ANSI.green}uptime:#{IO.ANSI.reset} #{getuptime()}"
-    IO.puts "#{IO.ANSI.green}memory:#{IO.ANSI.reset} #{formatmem()}"
-    IO.puts "#{IO.ANSI.green}shell:#{IO.ANSI.reset} #{getshell()}"
-    IO.puts "#{IO.ANSI.green}terminal:#{IO.ANSI.reset} #{getterm()}"
-    IO.puts "#{IO.ANSI.green}cpu:#{IO.ANSI.reset} #{getcpubrand()}"
-  end
-
 end
 
 defmodule Efetch.Main do
@@ -172,7 +173,6 @@ defmodule Efetch.Main do
   Entry point.
   """
   def start(_types, _args) do
-    Efetch.Fetch.start()
     System.halt(0)
     {:ok, self()}
   end
